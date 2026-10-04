@@ -1,0 +1,41 @@
+name: earth-orbit-local
+
+services:
+  mongo:
+    image: mongo:8.0
+    container_name: earth-orbit-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_DB: ${MONGO_DB:-earth_orbit_academico}
+    ports:
+      - "127.0.0.1:${MONGO_PORT:-27017}:27017"
+    volumes:
+      - mongo_data:/data/db
+      - ./scripts/earth_orbit_mongodb.js:/docker-entrypoint-initdb.d/01-earth_orbit_mongodb.js:ro
+    networks:
+      - earth-orbit-net
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    container_name: earth-orbit-api
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      SPRING_DATA_MONGODB_URI: ${SPRING_DATA_MONGODB_URI:-mongodb://mongo:27017/earth_orbit_academico}
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    networks:
+      - earth-orbit-net
+
+volumes:
+  mongo_data:
+
+networks:
+  earth-orbit-net:

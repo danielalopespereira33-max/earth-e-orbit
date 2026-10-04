@@ -1,0 +1,39 @@
+# Ambiente: production (porta 8082). Projeto, rede e volume proprios.
+# Variaveis exportadas pelo workflow: IMAGE e IMAGE_TAG.
+name: earth-orbit-production
+
+services:
+  mongo:
+    image: mongo:8.0
+    restart: unless-stopped
+    environment:
+      MONGO_DB: earth_orbit_academico
+    volumes:
+      - mongo_data:/data/db
+      - ../scripts/earth_orbit_mongodb.js:/docker-entrypoint-initdb.d/01-earth_orbit_mongodb.js:ro
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    image: ${IMAGE}:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      SPRING_DATA_MONGODB_URI: mongodb://mongo:27017/earth_orbit_academico
+    ports:
+      - "8082:8080"
+    networks:
+      - backend
+
+volumes:
+  mongo_data:
+
+networks:
+  backend:
