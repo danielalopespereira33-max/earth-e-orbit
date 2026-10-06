@@ -89,15 +89,42 @@ Estratégias: cache de dependências Maven em camada própria, imagem final enxu
 
 ## Prints do funcionamento
 
-Evidências reais em `docs/evidencias/`:
+Evidências reais em `docs/evidencias/`.
 
-1. GitHub Actions com test, docker, staging e production concluídos
-2. Testes com `BUILD SUCCESS`
-3. Imagem `earth-e-orbit` no GHCR
-4. `GET /api/health` em staging (porta 8081)
-5. `GET /api/health` em production (porta 8082)
+### Build e testes (`mvn clean test`)
+4 testes executados, 0 falhas, `BUILD SUCCESS`.
 
-_(inserir as capturas reais aqui antes da entrega)_
+![Testes com BUILD SUCCESS](docs/evidencias/01-testes.png.png)
+
+### Containers em execução (`docker compose ps`)
+Serviços `api` e `mongo` ativos (o Mongo com healthcheck `healthy`).
+
+![docker compose ps](docs/evidencias/02-docker-compose.png.png)
+
+### Imagem Docker criada (`docker images`)
+
+![docker images](docs/evidencias/docker-imagrm.png.png)
+
+### Aplicação funcionando (`GET /api/health`, execução local)
+
+![Health local](docs/evidencias/Captura%20de%20tela%202026-10-04%20162539.png)
+
+### Pipeline no GitHub Actions
+Jobs `test` e `docker` concluídos com sucesso.
+
+![Pipeline no Actions](docs/evidencias/03-actions-pipeline.png)
+
+Passo "Build, testes e JAR" do job `test`, com `BUILD SUCCESS`:
+
+![Testes no Actions](docs/evidencias/04-actions-testes.png)
+
+### Imagem publicada no GHCR
+Pacote `earth-e-orbit` com as tags `latest` e o hash do commit.
+
+![Imagem no GHCR](docs/evidencias/05-ghcr.png)
+
+### Staging (porta 8081) e production (porta 8082)
+_Pendente: inserir aqui os prints de `/api/health` nos dois ambientes e do pipeline com os quatro jobs concluídos._
 
 ## Tecnologias utilizadas
 
@@ -108,9 +135,9 @@ Java 21 · Spring Boot 3.5.6 (Web, Validation, Data MongoDB) · MongoDB 8 · JUn
 | Item | OK |
 |---|---|
 | Projeto compactado em .ZIP com estrutura organizada | ☐ |
-| Dockerfile funcional | ☐ |
-| docker-compose.yml ou arquivos Kubernetes | ☐ |
-| Pipeline com etapas de build, teste e deploy | ☐ |
+| Dockerfile funcional | ☑ |
+| docker-compose.yml ou arquivos Kubernetes | ☑ |
+| Pipeline com etapas de build, teste e deploy | ☑ |
 | README.md com instruções e prints | ☐ |
 | Documentação técnica com evidências (PDF ou PPT) | ☐ |
 | Deploy realizado nos ambientes staging e produção | ☐ |
