@@ -56,51 +56,47 @@ jobs:
             ${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.tag }}
             ${{ steps.vars.outputs.image }}:latest
 
+
   staging:
     name: staging
     needs: docker
     runs-on: ubuntu-latest
     environment:
       name: staging
-  
+    env:
+      IMAGE: ${{ needs.docker.outputs.image }}
+      IMAGE_TAG: ${{ needs.docker.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
-      - name: Copiar arquivos de deploy
-        uses: appleboy/scp-action@v0.1.7
+      - name: Login no GHCR
+        uses: docker/login-action@v3
         with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          port: ${{ secrets.DEPLOY_PORT }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          source: "deploy/docker-compose.staging.yml,scripts/earth_orbit_mongodb.js"
-          target: "earth-orbit/staging"
-      - name: Deploy em staging
-        uses: appleboy/ssh-action@v1.0.3
-        env:
-          IMAGE: ${{ needs.docker.outputs.image }}
-          IMAGE_TAG: ${{ needs.docker.outputs.tag }}
-          GHCR_USER: ${{ github.actor }}
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          port: ${{ secrets.DEPLOY_PORT }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          envs: IMAGE,IMAGE_TAG,GHCR_USER,GHCR_TOKEN
-          script: |
-            cd earth-orbit/staging
-            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
-            docker compose -f deploy/docker-compose.staging.yml pull api
-            docker compose -f deploy/docker-compose.staging.yml up -d
-      - name: Smoke test /api/health
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Deploy em staging (Docker Compose, porta 8081)
+        run: |
+          docker compose -f deploy/docker-compose.staging.yml pull api
+          docker compose -f deploy/docker-compose.staging.yml up -d
+          docker compose -f deploy/docker-compose.staging.yml ps
+      - name: Smoke test /api/health (staging)
         run: |
           for i in $(seq 1 12); do
-            if curl -fsS "http://${{ secrets.DEPLOY_HOST }}:8081/api/health" | grep -q '"UP"'; then
-              echo "staging UP"; exit 0
+            if curl -fsS "http://localhost:8081/api/health" | tee /tmp/health.json | grep -q '"UP"'; then
+              echo ""
+              echo "=== staging UP (porta 8081) ==="
+              cat /tmp/health.json
+              echo ""
+              exit 0
             fi
             echo "aguardando... ($i)"; sleep 10
           done
-          echo "staging nao respondeu UP"; exit 1
+          echo "staging nao respondeu UP"
+          docker compose -f deploy/docker-compose.staging.yml logs --tail=100
+          exit 1
+      - name: Encerrar ambiente
+        if: always()
+        run: docker compose -f deploy/docker-compose.staging.yml down -v
 
   production:
     name: production
@@ -108,42 +104,37 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: production
-    
+    env:
+      IMAGE: ${{ needs.docker.outputs.image }}
+      IMAGE_TAG: ${{ needs.docker.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
-      - name: Copiar arquivos de deploy
-        uses: appleboy/scp-action@v0.1.7
+      - name: Login no GHCR
+        uses: docker/login-action@v3
         with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          port: ${{ secrets.DEPLOY_PORT }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          source: "deploy/docker-compose.production.yml,scripts/earth_orbit_mongodb.js"
-          target: "earth-orbit/production"
-      - name: Deploy em production
-        uses: appleboy/ssh-action@v1.0.3
-        env:
-          IMAGE: ${{ needs.docker.outputs.image }}
-          IMAGE_TAG: ${{ needs.docker.outputs.tag }}
-          GHCR_USER: ${{ github.actor }}
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          port: ${{ secrets.DEPLOY_PORT }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          envs: IMAGE,IMAGE_TAG,GHCR_USER,GHCR_TOKEN
-          script: |
-            cd earth-orbit/production
-            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
-            docker compose -f deploy/docker-compose.production.yml pull api
-            docker compose -f deploy/docker-compose.production.yml up -d
-      - name: Smoke test /api/health
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Deploy em production (Docker Compose, porta 8082)
+        run: |
+          docker compose -f deploy/docker-compose.production.yml pull api
+          docker compose -f deploy/docker-compose.production.yml up -d
+          docker compose -f deploy/docker-compose.production.yml ps
+      - name: Smoke test /api/health (production)
         run: |
           for i in $(seq 1 12); do
-            if curl -fsS "http://${{ secrets.DEPLOY_HOST }}:8082/api/health" | grep -q '"UP"'; then
-              echo "production UP"; exit 0
+            if curl -fsS "http://localhost:8082/api/health" | tee /tmp/health.json | grep -q '"UP"'; then
+              echo ""
+              echo "=== production UP (porta 8082) ==="
+              cat /tmp/health.json
+              echo ""
+              exit 0
             fi
             echo "aguardando... ($i)"; sleep 10
           done
-          echo "production nao respondeu UP"; exit 1
+          echo "production nao respondeu UP"
+          docker compose -f deploy/docker-compose.production.yml logs --tail=100
+          exit 1
+      - name: Encerrar ambiente
+        if: always()
+        run: docker compose -f deploy/docker-compose.production.yml down -v
